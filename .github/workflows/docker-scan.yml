@@ -1,0 +1,38 @@
+name: Complete Docker Security Scan
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  docker-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Step A: Scan Dockerfile for misconfigurations
+      - name: Scan Dockerfile config
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: 'config'
+          scan-ref: '.'
+          exit-code: '1'
+          severity: 'CRITICAL,HIGH'
+
+      # Step B: Build the Docker image
+      - name: Build Docker image
+        run: docker build -t local-scan-image:${{ github.sha }} .
+
+      # Step C: Scan the built image for CVEs and secrets
+      - name: Scan built Docker image
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: 'image'
+          image-ref: 'local-scan-image:${{ github.sha }}'
+          scanners: 'vuln,secret'
+          exit-code: '1'
+          ignore-unfixed: true
+          severity: 'CRITICAL,HIGH'
